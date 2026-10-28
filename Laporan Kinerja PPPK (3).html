@@ -1,6 +1,11 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Laporan Kinerja PPPK</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Carlito:wght@400;700&family=Arimo:wght@400;700&display=swap">
 <style>
 /* Layout: panel data di kiri (isian bulanan lebih dulu), kertas A4 di kanan; di ponsel dua tampilan bergantian. */
@@ -65,7 +70,7 @@ button, input, select { font: inherit; color: inherit; }
 /* form bits */
 .f { display: grid; gap: 4px; min-width: 0; }
 .f > span { font-size: 12px; color: var(--muted); font-weight: 500; }
-input[type="text"], input[type="number"], input[type="date"], select {
+input[type="text"], input[type="password"], input[type="number"], input[type="date"], select {
   width: 100%; min-width: 0; background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; min-height: 38px;
 }
 input::placeholder { color: var(--muted); opacity: .8; }
@@ -133,13 +138,18 @@ body.booting .app { visibility: hidden; }
 .gate { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: grid; place-items: center; overflow-y: auto;
   padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
 .gate .box { width: min(440px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 26px 24px; display: grid; gap: 16px; }
-.gate[hidden] { display: none; }
+.gate[hidden], .gate [hidden] { display: none !important; }
 .gate h2 { margin: 0; font-size: 22px; line-height: 1.25; letter-spacing: -0.01em; text-wrap: balance; }
 .gate p { margin: 0; color: var(--muted); }
 .gate ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
 .gate .row { display: grid; gap: 8px; }
 .gate .btn { padding: 11px 14px; font-size: 14px; }
 .gate .mini { font-size: 12px; }
+.gate .err { color: var(--danger); min-height: 18px; font-size: 13px; }
+.gate .tabs2 { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 3px; background: var(--surface-2); }
+.gate .tabs2 button { border: 0; background: none; padding: 8px; border-radius: 7px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.gate .tabs2 button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); }
+.acct .btn { margin-left: auto; }
 .stage { background: var(--stage); border-radius: 12px; padding: 14px; overflow-x: auto; }
 .sheetwrap { width: 794px; margin: 0 auto; }
 .note { font-size: 12px; color: var(--muted); margin: 8px 2px 0; }
@@ -202,6 +212,8 @@ body.booting .app { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 </style>
 
+</head>
+<body>
 <div class="wrap">
   <header class="top">
     <div class="brand">
@@ -222,23 +234,26 @@ body.booting .app { visibility: hidden; }
   </header>
 
   <div class="acct" id="acct" role="status" aria-live="polite">Memeriksa akun...</div>
-  <div class="gate" id="gate" hidden>
-    <div class="box" role="dialog" aria-labelledby="gate-h">
+  <div class="gate" id="gate">
+    <form class="box" id="login-form" novalidate>
       <div>
-        <h2 id="gate-h">Masuk untuk menyimpan laporan Anda</h2>
-        <p style="margin-top:6px">Laporan Kinerja PPPK memakai akun Claude sebagai login. Data setiap guru tersimpan terpisah dan tidak bisa dilihat guru lain.</p>
+        <h2 id="gate-h">Laporan Kinerja PPPK</h2>
+        <p style="margin-top:6px">Masuk dengan username dan sandi Anda. Data setiap guru tersimpan terpisah.</p>
       </div>
-      <ol>
-        <li>Buka tautan ini di claude.ai dalam keadaan sudah masuk ke akun Claude Anda.</li>
-        <li>Pastikan email akun Anda sudah diundang pemilik halaman sebagai Kontributor lewat menu Share.</li>
-        <li>Muat ulang halaman ini.</li>
-      </ol>
-      <div class="row">
-        <button class="btn pri" id="gate-retry" data-act="gate-retry">Saya sudah masuk, muat ulang</button>
-        <button class="btn" id="gate-skip" data-act="gate-skip">Coba dulu tanpa masuk</button>
+      <div class="tabs2" role="tablist">
+        <button type="button" role="tab" id="tab-masuk" data-act="auth-tab" data-m="masuk" aria-selected="true">Masuk</button>
+        <button type="button" role="tab" id="tab-daftar" data-act="auth-tab" data-m="daftar" aria-selected="false">Daftar guru baru</button>
       </div>
-      <p class="mini">Tanpa masuk, data hanya tersimpan di peramban ini dan tidak ikut pindah ke perangkat lain.</p>
-    </div>
+      <label class="f" data-reg hidden><span>Nama lengkap dengan gelar</span><input type="text" name="nama" id="gate-nama" autocomplete="name"></label>
+      <label class="f"><span>Username</span><input type="text" name="username" id="gate-user" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
+      <label class="f"><span>Sandi</span><input type="password" name="password" id="gate-pw" autocomplete="current-password"></label>
+      <label class="f" data-reg hidden><span>Kode pendaftaran dari admin</span><input type="text" name="kode" id="gate-kode" autocomplete="off" autocapitalize="characters"></label>
+      <label class="chk"><input type="checkbox" id="gate-show"><span>Tampilkan sandi</span></label>
+      <p class="err" id="gate-err" role="alert"></p>
+      <button type="submit" class="btn pri" id="gate-go">Masuk</button>
+      <p class="mini" data-reg hidden>Username 3-30 karakter: huruf kecil, angka, titik, minus, atau garis bawah. Sandi minimal 8 karakter.</p>
+      <p class="mini">Lupa sandi? Minta admin mengatur ulang sandi Anda.</p>
+    </form>
   </div>
   <div class="app">
     <aside class="panel" id="panel" aria-label="Data laporan"></aside>
@@ -579,33 +594,7 @@ function makePdf(S, parts, lib) {
 <script>
 (function () {
   var KEY = 'laporan-kinerja-pppk-v1';
-  var DEFAULTS = {
-    v: 1, ym: '2026-09',
-    profile: {
-      nama: 'Asep Syamsul Hidayat, S.Pd.I', nip: '198206202025211003', jabatan: 'Guru', golongan: 'IX',
-      mapel: 'Akidah Akhlak dan Informatika', satker: 'MTs Negeri 3 Subang', unitOrg: 'Kantor Kementerian Agama Kab. Subang',
-      instansi: 'KEMENTERIAN AGAMA REPUBLIK INDONESIA', madrasah: 'MADRASAH TSANAWIYAH NEGERI 3 SUBANG',
-      alamat: 'Jl. Irian No. 02 Kasomalang Wetan Kec. Kasomalang, Kabupaten Subang', email: 'mtsnkasomalang@kemenag.go.id', kota: 'Subang',
-      kepalaNama: 'Rosih, S.Ag', kepalaNip: '197010281994032001', kepalaJabatan: 'Kepala MTs Negeri 3 Subang'
-    },
-    schedule: {
-      1: [{ mapel: 'Informatika', kelas: '9A', jp: '' }, { mapel: 'Informatika', kelas: '7E', jp: '' }, { mapel: 'Akidah Akhlak', kelas: '9C', jp: '' }],
-      2: [{ mapel: 'Akidah Akhlak', kelas: '8A', jp: '' }, { mapel: 'Informatika', kelas: '7H', jp: '' }, { mapel: 'Informatika', kelas: '9C', jp: '' }, { mapel: 'Akidah Akhlak', kelas: '7G', jp: '' }],
-      3: [{ mapel: 'Informatika', kelas: '9B', jp: '' }, { mapel: 'Informatika', kelas: '7G', jp: '' }, { mapel: 'Akidah Akhlak', kelas: '7B', jp: '' }, { mapel: 'Informatika', kelas: '7I', jp: '' }],
-      4: [{ mapel: 'Informatika', kelas: '7F', jp: '' }, { mapel: 'Informatika', kelas: '8B', jp: '' }, { mapel: 'Informatika', kelas: '8A', jp: '' }],
-      5: [{ mapel: 'Akidah Akhlak', kelas: '8F', jp: '' }, { mapel: 'Informatika', kelas: '8C', jp: '' }, { mapel: 'Akidah Akhlak', kelas: '7H', jp: '' }]
-    },
-    routines: [{ day: 5, text: 'Pembiasaan Kitab Akhlakul Banin', bukti: 'Daftar hadir' }],
-    upacaraOn: true,
-    upacara: { '2026-09-07': 'Ade Komariah', '2026-09-14': 'Rini Ekayanti', '2026-09-21': 'Rosihan., S.Pd', '2026-09-28': 'Imam Minhajul' },
-    events: [
-      { date: '2026-09-17', text: 'Pembinaan pegawai oleh kasi penmad dan penyerahan hasil audit irjen', lkb: 'Mengikuti Pembinaan Pegawai oleh Kasi Penmad', bukti: 'Foto Kegiatan', noKbm: false, pos: 'after' },
-      { date: '2026-09-23', text: 'Mengikuti kampanye pemilihan osim masa bakti 2026-2027', lkb: 'Mengikuti kegiatan kampanye Osim', bukti: 'Foto Kegiatan', noKbm: false, pos: 'before' },
-      { date: '2026-09-25', text: 'Pemilihan OSIM masa bakti 2026-2027', lkb: 'Mengikuti kegiatan Pemilihan Osim', bukti: 'Foto Kegiatan', noKbm: true, pos: 'before' }
-    ],
-    holidays: [], wfoDays: [5], jpOverride: { '2026-09': 38 },
-    media: { logo: null, ttdPegawai: null, ttdKepala: null, stempel: null }
-  };
+  var DEFAULTS;
   var clone = function (o) { return JSON.parse(JSON.stringify(o)); };
   var nowD = new Date();
   var BLANK = {
@@ -614,6 +603,7 @@ function makePdf(S, parts, lib) {
     schedule: { 1: [], 2: [], 3: [], 4: [], 5: [] }, routines: [], upacaraOn: false, upacara: {}, events: [], holidays: [], wfoDays: [], jpOverride: {},
     media: { logo: null, ttdPegawai: null, ttdKepala: null, stempel: null }
   };
+  DEFAULTS = clone(BLANK);
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
 
@@ -632,34 +622,47 @@ function makePdf(S, parts, lib) {
     return o;
   }
   var S;
-  try { S = merge(DEFAULTS, JSON.parse(localStorage.getItem(KEY) || 'null')); } catch (e) { S = clone(DEFAULTS); }
+  S = clone(BLANK);
   var ui = { tab: 'lckh', open: { kegiatan: true }, resetArm: false, saveFail: false, mode: 'boot', uid: null, name: '', owner: false, sync: 'idle' };
   document.body.classList.add('booting');
   document.body.dataset.view = 'docs';
 
-  var DB = null, chain = Promise.resolve(), timer = 0, dirty = {}, MEDIA = ['logo', 'ttdPegawai', 'ttdKepala', 'stempel'];
-  function lkey() { return ui.mode === 'cloud' ? KEY + ':' + ui.uid : KEY; }
+  var chain = Promise.resolve(), timer = 0, retry = 0, dirty = {}, MEDIA = ['logo', 'ttdPegawai', 'ttdKepala', 'stempel'];
+  var session = { token: null }, TOKEN_KEY = KEY + ':token', authMode = 'masuk';
+  function rpc(fn, args) {
+    return new Promise(function (resolve, reject) {
+      if (!(window.google && google.script && google.script.run)) { reject(new Error('Buka halaman ini dari tautan aplikasi web.')); return; }
+      var r = google.script.run.withSuccessHandler(resolve).withFailureHandler(function (e) { reject(e); });
+      r[fn].apply(r, args);
+    });
+  }
+  function tokenGet() { try { return localStorage.getItem(TOKEN_KEY); } catch (e) { return null; } }
+  function tokenSet(t) { try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch (e) { /* abaikan */ } }
   function save() {
-    try { localStorage.setItem(lkey(), JSON.stringify(S)); ui.saveFail = false; } catch (e) { ui.saveFail = true; }
-    if (ui.mode === 'cloud' && ui.sync !== 'readonly') { ui.sync = 'saving'; updateAcct(); clearTimeout(timer); timer = setTimeout(flush, 800); }
+    if (ui.mode !== 'cloud') return;
+    ui.sync = 'saving'; updateAcct();
+    clearTimeout(timer); timer = setTimeout(flush, 900);
   }
   function dirtyAll() { dirty.main = true; MEDIA.forEach(function (k) { dirty[k] = true; }); }
-  function mine(name) { return DB.doc('data/users/' + ui.uid + '/' + name); }
   function flush() {
     chain = chain.then(async function () {
+      if (ui.mode !== 'cloud') return;
       var keys = Object.keys(dirty); dirty = {};
+      var media = {};
+      keys.forEach(function (k) { if (k !== 'main') media[k] = S.media[k] || null; });
       try {
         var body = clone(S); delete body.media;
-        await mine('laporan').set(body);
-        for (var i = 0; i < keys.length; i++) {
-          var k = keys[i]; if (k === 'main') continue;
-          var m = S.media[k];
-          if (m) await mine('img-' + k).set({ url: m.url, w: m.w, h: m.h }); else await mine('img-' + k).delete();
+        var r = await rpc('apiSave', [session.token, JSON.stringify(body), media]);
+        if (!r || !r.ok) {
+          if (r && r.code === 'sesi') { keys.forEach(function (k) { dirty[k] = true; }); expire(); return; }
+          throw new Error((r && r.error) || 'Data belum tersimpan.');
         }
+        ui.err = '';
         if (!Object.keys(dirty).length) ui.sync = 'saved';
       } catch (e) {
-        ui.sync = e && e.code === 'invalid_argument' ? 'readonly' : (e && e.code === 'quota_exceeded' ? 'quota' : 'error');
+        ui.sync = 'error'; ui.err = (e && e.message) || '';
         keys.forEach(function (k) { dirty[k] = true; });
+        clearTimeout(retry); retry = setTimeout(flush, 8000);
       }
       updateAcct();
     });
@@ -667,49 +670,77 @@ function makePdf(S, parts, lib) {
   function updateAcct() {
     var el = document.getElementById('acct'); if (!el) return;
     var h = '', warn = false;
-    if (ui.mode === 'boot') h = 'Memeriksa akun...';
-    else if (ui.mode === 'cloud') {
-      var st = { idle: 'Tersimpan di akun Anda', saving: 'Menyimpan...', saved: 'Tersimpan di akun Anda', error: 'Belum tersimpan. Periksa koneksi, perubahan dicoba lagi saat Anda mengubah data.', quota: 'Penyimpanan penuh. Hapus gambar yang tidak dipakai lalu coba lagi.', readonly: 'Akun Anda hanya boleh melihat, jadi data belum bisa disimpan. Minta pemilik halaman mengubah akses Anda menjadi Kontributor.' }[ui.sync];
-      warn = ui.sync === 'error' || ui.sync === 'quota' || ui.sync === 'readonly';
-      h = '<b>' + esc(ui.name || 'Akun Claude Anda') + '</b><span class="sync">' + esc(st) + '</span><span class="why">Data setiap guru tersimpan terpisah. Guru lain tidak bisa melihat data Anda.</span>';
-    } else {
-      h = '<b>Belum masuk</b><span class="sync">Data hanya tersimpan di peramban ini.</span><span class="why">Buka tautan ini dalam keadaan masuk ke akun Claude agar data tersimpan di akun Anda dan bisa dipakai di perangkat lain.</span>';
-    }
+    if (ui.mode === 'cloud') {
+      var st = { idle: 'Tersimpan', saving: 'Menyimpan...', saved: 'Semua perubahan tersimpan', error: 'Belum tersimpan, dicoba lagi otomatis.' + (ui.err ? ' ' + ui.err : '') }[ui.sync];
+      warn = ui.sync === 'error';
+      h = '<b>' + esc(ui.name || ui.uid) + '</b><span class="sync">' + esc(st) + '</span><button class="btn sm" data-act="logout" id="logout">Keluar</button>' +
+        '<span class="why">Data setiap guru tersimpan terpisah di akun masing-masing.</span>';
+    } else h = 'Memeriksa akun...';
     el.className = 'acct' + (warn ? ' warn' : '');
     el.innerHTML = h;
   }
-  function withTimeout(pr, ms) { return Promise.race([pr, new Promise(function (r) { setTimeout(function () { r(null); }, ms); })]); }
-  async function bootCloud() {
-    try {
-      var cl = window.claude;
-      var db = cl && cl.use ? await withTimeout(cl.use('db'), 8000) : null;
-      var user = cl && cl.use ? await withTimeout(cl.use('user'), 8000) : null;
-      var uid = db && user ? await user.id() : null;
-      if (!db || !user || !uid) throw 0;
-      DB = db; ui.uid = uid; ui.mode = 'cloud';
-      var me = await user.me(); ui.name = me.name || ''; ui.owner = await user.isOwner();
-      var snap = await mine('laporan').get();
-      if (snap.exists) {
-        S = merge(BLANK, snap.data());
-        for (var i = 0; i < MEDIA.length; i++) {
-          var k = MEDIA[i], im = await mine('img-' + k).get();
-          S.media[k] = im.exists ? { url: im.data().url, w: im.data().w, h: im.data().h } : null;
-        }
-        ui.sync = 'saved';
-      } else {
-        var loc = null;
-        try { loc = JSON.parse(localStorage.getItem(KEY + ':' + uid) || 'null'); } catch (e) { loc = null; }
-        S = loc ? merge(BLANK, loc) : (ui.owner ? S : clone(BLANK));
-        dirtyAll(); ui.sync = 'saving'; flush();
-      }
-    } catch (e) {
-      ui.mode = 'local';
+  function setGate(on, msg) {
+    document.getElementById('gate').hidden = !on;
+    document.body.classList.toggle('booting', on);
+    var er = document.getElementById('gate-err'); if (er) er.textContent = msg || '';
+  }
+  function showLogin(msg) { ui.mode = 'login'; setGate(true, msg); updateAcct(); }
+  function expire() { tokenSet(null); session.token = null; S = clone(BLANK); showLogin('Sesi Anda berakhir. Masuk lagi.'); }
+  function applyLoad(r) {
+    ui.mode = 'cloud'; ui.uid = r.user; ui.name = r.nama; ui.owner = r.peran === 'admin'; ui.err = '';
+    if (r.data) {
+      var d = {}; try { d = JSON.parse(r.data); } catch (e) { d = {}; }
+      S = merge(BLANK, d);
+      MEDIA.forEach(function (k) { S.media[k] = r.media && r.media[k] ? r.media[k] : null; });
+      ui.sync = 'saved';
+    } else {
+      S = clone(BLANK); S.profile.nama = r.nama || '';
+      dirtyAll(); ui.sync = 'saving'; flush();
     }
-    document.body.classList.remove('booting');
-    var skipped = false;
-    try { skipped = localStorage.getItem(KEY + ':skip') === '1'; } catch (e) { skipped = false; }
-    document.getElementById('gate').hidden = !(ui.mode === 'local' && !skipped);
-    updateAcct(); renderMonthBar(); renderPanel(); renderDoc();
+    setGate(false); updateAcct(); renderMonthBar(); renderPanel(); renderDoc();
+  }
+  async function bootSession() {
+    var tok = tokenGet();
+    if (tok) {
+      try {
+        var r = await rpc('apiLoad', [tok]);
+        if (r && r.ok) { session.token = tok; applyLoad(r); return; }
+      } catch (e) { /* lanjut ke layar masuk */ }
+    }
+    showLogin('');
+  }
+  async function submitAuth(form) {
+    var g = function (n) { return form.elements[n] ? form.elements[n].value : ''; };
+    var btn = document.getElementById('gate-go'), er = document.getElementById('gate-err');
+    var u = g('username').trim(), p = g('password');
+    if (!u || !p) { er.textContent = 'Isi username dan sandi.'; return; }
+    if (authMode === 'daftar') {
+      if (!g('nama').trim()) { er.textContent = 'Isi nama lengkap.'; return; }
+      if (p.length < 8) { er.textContent = 'Sandi minimal 8 karakter.'; return; }
+      if (!g('kode').trim()) { er.textContent = 'Isi kode pendaftaran dari admin.'; return; }
+    }
+    btn.disabled = true; btn.textContent = 'Memeriksa...'; er.textContent = '';
+    try {
+      var r = authMode === 'daftar' ? await rpc('apiRegister', [u, p, g('nama'), g('kode')]) : await rpc('apiLogin', [u, p]);
+      if (!r || !r.ok) { er.textContent = (r && r.error) || 'Tidak berhasil masuk.'; return; }
+      var ld = await rpc('apiLoad', [r.token]);
+      if (!ld || !ld.ok) { er.textContent = (ld && ld.error) || 'Data belum bisa dimuat.'; return; }
+      session.token = r.token; tokenSet(r.token); form.reset();
+      applyLoad(ld);
+    } catch (e) {
+      er.textContent = (e && e.message) || 'Tidak bisa terhubung ke server.';
+    } finally {
+      btn.disabled = false; btn.textContent = authMode === 'daftar' ? 'Daftar dan masuk' : 'Masuk';
+    }
+  }
+  function setAuthMode(m) {
+    authMode = m;
+    document.querySelectorAll('[data-reg]').forEach(function (el) { el.hidden = m !== 'daftar'; });
+    document.getElementById('tab-masuk').setAttribute('aria-selected', String(m === 'masuk'));
+    document.getElementById('tab-daftar').setAttribute('aria-selected', String(m === 'daftar'));
+    document.getElementById('gate-go').textContent = m === 'daftar' ? 'Daftar dan masuk' : 'Masuk';
+    document.getElementById('gate-pw').autocomplete = m === 'daftar' ? 'new-password' : 'current-password';
+    document.getElementById('gate-err').textContent = '';
   }
   function get(path) { return path.split('.').reduce(function (o, k) { return o == null ? o : o[k]; }, S); }
   function put(path, val) {
@@ -739,7 +770,7 @@ function makePdf(S, parts, lib) {
     return '<datalist id="mapelDL">' + Object.keys(set).map(function (k) { return '<option value="' + esc(k) + '">'; }).join('') + '</datalist>';
   }
   function trim(s) { return String(s == null ? '' : s).trim(); }
-  function canSample() { return ui.mode !== 'cloud' || ui.owner; }
+  function canSample() { return false; }
 
   function panelKegiatan(M) {
     var h = '';
@@ -835,7 +866,9 @@ function makePdf(S, parts, lib) {
       '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="backup" id="backup">Unduh cadangan</button>' +
       '<label class="btn sm" for="restore">Pulihkan dari cadangan</label><input type="file" id="restore" accept=".json,application/json" hidden>' +
       '<button class="btn sm" data-act="reset" id="reset">' + (ui.resetArm ? 'Klik lagi untuk menghapus semua' : (canSample() ? 'Kembalikan ke contoh' : 'Kosongkan semua data')) + '</button></div>' +
-      (ui.saveFail ? '<p class="hint" style="color:var(--danger)">Penyimpanan otomatis tidak berhasil. Unduh cadangan agar data tidak hilang.</p>' : '');
+      '<div class="sub" style="margin-top:6px"><h3>Ganti sandi</h3><label class="f"><span>Sandi lama</span><input type="password" id="pw-old" autocomplete="current-password"></label>' +
+      '<label class="f"><span>Sandi baru (minimal 8 karakter)</span><input type="password" id="pw-new" autocomplete="new-password"></label>' +
+      '<div><button class="btn sm" data-act="chpass" id="chpass">Ganti sandi</button></div><p class="hint" id="pw-msg" role="status"></p></div>';
   }
   function renderPanel() {
     var M = buildMonth(S), total = 0;
@@ -949,11 +982,6 @@ function docHTML(tab) {
   }
 
   /* ---------- unduh ---------- */
-  var dlPromise = null;
-  function getDL() {
-    if (!dlPromise) dlPromise = (window.claude && window.claude.use) ? window.claude.use('downloads').catch(function () { return null; }) : Promise.resolve(null);
-    return dlPromise;
-  }
   function status(t) { $('#status').textContent = t; }
   var safe = function (s) { return trim(s).replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, ''); };
   function fileName(which) {
@@ -962,24 +990,25 @@ function docHTML(tab) {
     var tag = { sampul: 'Sampul', rkb: 'RKB', lckh: 'LCKH', lkb: 'LKB', all: 'Laporan_Kinerja' }[which];
     return safe(P.nip) + '_' + safe(P.nama) + '_' + tag + '_' + mon + pm.y + '.pdf';
   }
+  function saveBlob(blob, name) {
+    var url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
+  }
   async function download(parts, name) {
     if (!window.jspdf || !window.jspdf.jsPDF) { status('Pustaka PDF belum termuat. Periksa koneksi lalu muat ulang halaman.'); return; }
-    var dl = await getDL();
-    if (!dl) { status('Unduhan tidak tersedia di tampilan ini. Buka artifact ini di claude.ai.'); return; }
     status('Menyusun PDF...');
     try {
       var doc = makePdf(S, parts, window.jspdf);
-      await dl.save({ filename: name, data: doc.output('blob') });
-      status('PDF disimpan: ' + name);
+      saveBlob(doc.output('blob'), name);
+      status('PDF dibuat: ' + name);
     } catch (e) {
-      status(e && e.code === 'declined' ? 'Penyimpanan dibatalkan.' : 'PDF belum berhasil dibuat' + (e && e.message ? ': ' + e.message : '.'));
+      status('PDF belum berhasil dibuat' + (e && e.message ? ': ' + e.message : '.'));
     }
   }
   async function backup() {
-    var dl = await getDL();
-    if (!dl) { status('Unduhan tidak tersedia di tampilan ini.'); return; }
-    try { await dl.save({ filename: 'cadangan-laporan-kinerja.json', data: JSON.stringify(S, null, 1) }); status('Cadangan disimpan.'); }
-    catch (e) { status(e && e.code === 'declined' ? 'Penyimpanan dibatalkan.' : 'Cadangan belum berhasil disimpan.'); }
+    saveBlob(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' }), 'cadangan-laporan-kinerja.json');
+    status('Cadangan diunduh.');
   }
 
   /* ---------- gambar ---------- */
@@ -1063,8 +1092,18 @@ function docHTML(tab) {
       $('#v-docs').setAttribute('aria-pressed', String(b.dataset.view === 'docs')); $('#v-data').setAttribute('aria-pressed', String(b.dataset.view === 'data'));
       if (b.dataset.view === 'docs') fit(); return;
     }
-    if (act === 'gate-retry') { location.reload(); return; }
-    if (act === 'gate-skip') { try { localStorage.setItem(KEY + ':skip', '1'); } catch (er) { /* abaikan */ } document.getElementById('gate').hidden = true; return; }
+    if (act === 'logout') { tokenSet(null); session.token = null; ui.mode = 'login'; S = clone(BLANK); dirty = {}; clearTimeout(timer); showLogin(''); return; }
+    if (act === 'auth-tab') { setAuthMode(b.dataset.m); return; }
+    if (act === 'chpass') {
+      var o = document.getElementById('pw-old').value, nw = document.getElementById('pw-new').value, msg = document.getElementById('pw-msg');
+      if (!o || !nw) { msg.textContent = 'Isi sandi lama dan sandi baru.'; return; }
+      msg.textContent = 'Memproses...';
+      rpc('apiChangePassword', [session.token, o, nw]).then(function (r) {
+        msg.textContent = r && r.ok ? 'Sandi sudah diganti.' : ((r && r.error) || 'Sandi belum diganti.');
+        if (r && r.ok) { document.getElementById('pw-old').value = ''; document.getElementById('pw-new').value = ''; }
+      }).catch(function (e) { msg.textContent = (e && e.message) || 'Sandi belum diganti.'; });
+      return;
+    }
     if (act === 'tab') { ui.tab = b.dataset.tab; renderDoc(); return; }
     if (act === 'dl-tab') return download([ui.tab], fileName(ui.tab));
     if (act === 'dl-all') return download(['sampul', 'rkb', 'lckh', 'lkb'], fileName('all'));
@@ -1084,6 +1123,12 @@ function docHTML(tab) {
     } else return;
     save(); renderPanel(); renderDoc();
   });
+  document.addEventListener('submit', function (e) {
+    if (e.target.id === 'login-form') { e.preventDefault(); submitAuth(e.target); }
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.id === 'gate-show') document.getElementById('gate-pw').type = e.target.checked ? 'text' : 'password';
+  });
   document.addEventListener('keydown', function (e) {
     if (!e.target.classList || !e.target.classList.contains('tab')) return;
     var tabs = ['sampul', 'rkb', 'lckh', 'lkb', 'wfo'], ix = tabs.indexOf(ui.tab);
@@ -1092,10 +1137,10 @@ function docHTML(tab) {
   });
   if (window.ResizeObserver) new ResizeObserver(fit).observe($('#stage')); else window.addEventListener('resize', fit);
 
-  renderMonthBar(); renderPanel(); renderDoc(); updateAcct();
-  bootCloud();
-  getDL().then(function (dl) { if (!dl) status('Unduhan PDF hanya tersedia saat artifact dibuka di claude.ai.'); });
+  renderMonthBar(); renderPanel(); renderDoc(); updateAcct(); document.body.classList.add('booting');
+  bootSession();
 })();
 </script>
 
-</body></html>
+</body>
+</html>
