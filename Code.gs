@@ -106,7 +106,7 @@ function menuUbahKode() {
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('Laporan Kinerja PPPK')
+    .setTitle('Laporan Kinerja Guru')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOW_ALL);
 }
@@ -368,4 +368,118 @@ function writeValue_(user, key, value) {
   var now = new Date(), out = [];
   for (var p = 0, n = 0; p < value.length; p += CHUNK, n++) out.push([user, key, n, value.substr(p, CHUNK), now]);
   sh.getRange(sh.getLastRow() + 1, 1, out.length, 5).setNumberFormat('@').setValues(out);
+}
+
+
+/* ================= Panel admin (dipanggil dari halaman web) ================= */
+
+function admin_(token) {
+  var a = auth_(token);
+  if (!a.ok) return a;
+  if (a.peran !== 'admin') return fail_('Hanya admin yang boleh melakukan ini.');
+  return a;
+}
+function iso_(d) { try { return d instanceof Date ? d.toISOString() : String(d || ''); } catch (e) { return ''; } }
+function isOff_(v) { return v === false || String(v).toLowerCase() === 'false'; }
+function countAdmins_() {
+  var sh = userSheet_(), last = sh.getLastRow(), n = 0;
+  if (last < 2) return 0;
+  sh.getRange(2, 1, last - 1, USER_HEADERS.length).getValues().forEach(function (r) { if (String(r[4]) === 'admin' && !isOff_(r[5])) n++; });
+  return n;
+}
+function purgeData_(u) {
+  var sh = dataSheet_(), last = sh.getLastRow();
+  if (last < 2) return;
+  var rows = sh.getRange(2, 1, last - 1, 1).getValues();
+  for (var i = rows.length - 1; i >= 0; i--) if (String(rows[i][0]) === u) sh.deleteRow(i + 2);
+}
+
+/** Daftar semua akun, kode pendaftaran, dan waktu data terakhir diperbarui. */
+function apiAdminList(token) {
+  try {
+    var a = admin_(token);
+    if (!a.ok) return a;
+    var upd = {}, ds = dataSheet_(), dl = ds.getLastRow(), users = [];
+    if (dl >= 2) ds.getRange(2, 1, dl - 1, 5).getValues().forEach(function (r) { if (String(r[1]) === 'main') upd[String(r[0])] = iso_(r[4]); });
+    var sh = userSheet_(), last = sh.getLastRow();
+    if (last >= 2) sh.getRange(2, 1, last - 1, USER_HEADERS.length).getValues().forEach(function (r) {
+      users.push({ username: String(r[0]), nama: String(r[3]), peran: String(r[4]), aktif: !isOff_(r[5]), login: iso_(r[7]), diperbarui: upd[String(r[0])] || '' });
+    });
+    return { ok: true, users: users, kode: PropertiesService.getScriptProperties().getProperty('KODE_DAFTAR') || '' };
+  } catch (e) {
+    return fail_('Daftar guru belum bisa dimuat.');
+  }
+}
+
+/** act: add | reset | toggle | role | delete | setcode */
+function apiAdmin(token, act, username, v1, v2) {
+  try {
+    var a = admin_(token);
+    if (!a.ok) return a;
+    var u = normUser_(username);
+    if (act === 'setcode') {
+      var k = String(v1 || '').trim();
+      if (k.length < 6) return fail_('Kode minimal 6 karakter.');
+      PropertiesService.getScriptProperties().setProperty('KODE_DAFTAR', k);
+      return { ok: true, info: 'Kode pendaftaran diganti.' };
+    }
+    if (act === 'add') {
+      var c = createUser_(u, v2, v1);
+      return c.ok ? { ok: true, info: 'Guru ditambahkan.' } : c;
+    }
+    var f = findUser_(u);
+    if (!f) return fail_('Username tidak ditemukan.');
+    var self = u === a.user;
+    if (act === 'reset') {
+      var r = setPassword_(u, v1);
+      return r.ok ? { ok: true, info: 'Sandi diganti. Sampaikan sandi baru kepada guru.' } : r;
+    }
+    var lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      var isAdm = String(f.row[4]) === 'admin';
+      if (act === 'toggle') {
+        if (self) return fail_('Akun sendiri tidak bisa dinonaktifkan.');
+        var on = isOff_(f.row[5]);
+        if (!on && isAdm && countAdmins_() < 2) return fail_('Harus ada minimal satu admin aktif.');
+        f.sheet.getRange(f.index, 6).setValue(on);
+        return { ok: true, info: on ? 'Akun diaktifkan.' : 'Akun dinonaktifkan.' };
+      }
+      if (act === 'role') {
+        if (isAdm && countAdmins_() < 2) return fail_('Harus ada minimal satu admin.');
+        f.sheet.getRange(f.index, 5).setValue(isAdm ? 'guru' : 'admin');
+        return { ok: true, info: isAdm ? 'Peran diubah menjadi guru.' : 'Peran diubah menjadi admin.' };
+      }
+      if (act === 'delete') {
+        if (self) return fail_('Akun sendiri tidak bisa dihapus.');
+        if (isAdm && countAdmins_() < 2) return fail_('Harus ada minimal satu admin.');
+        purgeData_(u);
+        f.sheet.deleteRow(f.index);
+        return { ok: true, info: 'Akun dan datanya dihapus.' };
+      }
+    } finally {
+      lock.releaseLock();
+    }
+    return fail_('Perintah tidak dikenal.');
+  } catch (e) {
+    return fail_('Tindakan belum berhasil. Coba lagi.');
+  }
+}
+
+/** Admin membuka laporan seorang guru (hanya lihat dan unduh PDF). */
+function apiAdminView(token, username) {
+  try {
+    var a = admin_(token);
+    if (!a.ok) return a;
+    var u = normUser_(username), f = findUser_(u);
+    if (!f) return fail_('Username tidak ditemukan.');
+    var out = { ok: true, user: u, nama: String(f.row[3]), peran: String(f.row[4]), data: readValue_(u, 'main'), media: {} };
+    MEDIA_KEYS.forEach(function (k) {
+      var v = readValue_(u, 'img-' + k);
+      if (v) { try { out.media[k] = JSON.parse(v); } catch (e) { out.media[k] = null; } }
+    });
+    return out;
+  } catch (e) {
+    return fail_('Data guru belum bisa dibaca.');
+  }
 }
